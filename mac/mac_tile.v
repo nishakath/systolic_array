@@ -37,20 +37,20 @@ begin
 	if(reset==1'b1)
 	begin
 		inst_q <= 2'b00;
-		load_ready_q <= 1'b1;
+		load_ready_q <= 1'b1; //weight not loaded yet
 	end
 	else
 	begin
-		inst_q[1] <= inst_w[1];
-		c_q[psum_bw-1:0] <= in_n[psum_bw-1:0];
-		if (inst_w!=2'b00)
+		inst_q[1] <= inst_w[1];// each cycle forward the execute bit
+		c_q[psum_bw-1:0] <= in_n[psum_bw-1:0]; // psum from previous mac used as c in a*b +c
+		if (inst_w!=2'b00)//no kernel loading and no execute
 			a_q<=in_w;
 	 	if ((inst_w[0] == 1'b1) && (load_ready_q == 1'b1))
 		begin
-			b_q<=in_w;			
+			b_q<=in_w;	// weight is b_q		
 			load_ready_q <=0;
 		end
-		else if(load_ready_q == 1'b0)
+		else if(load_ready_q == 1'b0)//weight loaded then instruction
 			inst_q[0] <= inst_w[0];
 	end
 end

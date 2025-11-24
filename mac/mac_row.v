@@ -24,17 +24,13 @@ module mac_row (clk, out_s, in_w, in_n, valid, inst_w, reset);
       mac_tile #(.bw(bw), .psum_bw(psum_bw)) mac_tile_instance (
          .clk(clk),
          .reset(reset),
-	 .in_w(temp[bw*i-1:bw*(i-1)]),
-	 .out_e(temp[bw*(i+1)-1:bw*i]),
-	 .inst_w(temp1[2*i-1:2*(i-1)]),
-	 .inst_e(temp1[2*(i+1)-1:2*i]),
-	 .in_n(in_n[psum_bw*i-1:psum_bw*(i-1)]),
-	 .out_s(out_s[psum_bw*i-1:psum_bw*(i-1)]));
-  end
-
-  genvar j;
-  for (j=0; j<col; j=j+1) begin: valid_signal
-	  assign valid[j] = temp1[2*j +1];
+	       .in_w(temp[bw*i-1:bw*(i-1)]),
+	       .out_e(temp[bw*(i+1)-1:bw*i]),
+	       .inst_w(temp1[2*i-1:2*(i-1)]),
+	       .inst_e(temp1[2*(i+1)-1:2*i]),
+	       .in_n(in_n[psum_bw*i-1:psum_bw*(i-1)]),
+	       .out_s(out_s[psum_bw*i-1:psum_bw*(i-1)]));
+   assign valid[i-1] = temp1[2*(i+1)-1]
   end
 
 endmodule

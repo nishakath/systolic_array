@@ -38,7 +38,7 @@ module mac_array (clk, reset, out_s, in_w, in_n, inst_w, valid);
 
   always @ (posedge clk) begin
 	// inst_w flows to row0 to row7
-	temp_instw[1:0] <= temp_instw;
+	temp_instw[1:0] <= inst_w;
 	temp_instw[3:2] <= temp_instw[1:0];
 	temp_instw[5:4] <= temp_instw[3:2];
 	temp_instw[7:6] <= temp_instw[5:4];
