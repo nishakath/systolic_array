@@ -12,107 +12,118 @@ module corelet #(
 )(
     input                       clk,
     input                       reset,
+    input [5:0]                inst,
+    input [bw*row-1:0]          D_xmem, //goes to L0
+    input [psum_bw*col-1:0] mem_read_psum, //input from memory
+    output [psum_bw*col-1:0] sfu_out_flat,
+    output o_ready_l0,
+    output reg wr_mem,
+    output reg rd_ofifo
 
-    // ----------- L0 FIFO interface (weights) -------------
-    input                       wr_l0,                 // write to L0
-    input  [bw*row-1:0]         weight_vector_in,      // row-wise weights
-    output                      l0_full,
-    output                      l0_ready,
-
-    // ----------- MAC activation interface --------------
-    input  [act_bw*col-1:0]     act_in,                // column activations
-
-    // ----------- OFIFO interface (final output) --------
-    input                       rd_ofifo,
-    output [psum_bw*col-1:0]    out_vector,
-    output                      ofifo_full,
-    output                      ofifo_valid
 );
 
-    // ============================================================
-    // 1. L0 FIFO  → produces input row-by-row
-    // ============================================================
-    wire [bw*row-1:0] weight_vector_out;
+  wire load      = inst[0];
+  wire execute   = inst[1]; 
+  wire l0_wr     = inst[2];
+  wire l0_rd     = inst[3];
+
+
+    wire [bw*row-1:0] act_wgt_out;
+    wire l0_full;
 
     l0 #(
         .bw(bw),
         .row(row)
     ) L0_inst (
         .clk(clk),
-        .in(weight_vector_in),
-        .out(weight_vector_out),
-        .rd(1'b1),          // always feeding MAC array
-        .wr(wr_l0),
-        .o_full(l0_full),
-        .reset(reset),
-        .o_ready(l0_ready)
+        .in(D_xmem),
+        .out(act_wgt_out),
+        .rd(l0_rd),          // fr
+        .wr(l0_wr),
+        .o_full(l0_full), //connect
+        .reset(reset), //connect
+        .o_ready(o_ready_l0) //connect
     );
 
-    // ============================================================
-    // 2. MAC ARRAY → computes psum_ij per column
-    // ============================================================
-    wire [psum_bw*col-1:0] psum_array_out;
 
-    mac_array #(
-        .bw(bw),
-        .psum_bw(psum_bw),
-        .col(col)
-    ) MAC_inst (
-        .clk(clk),
-        .reset(reset),
+wire [psum_bw*col-1:0] psum_array_out;
+wire [psum_bw*col-1:0] in_n_bus;
+assign in_n_bus = {psum_bw*col{1'b0}};
 
-        .in_w(weight_vector_out),      // from L0
-        .in_n(act_in),                 // activations
+wire [col-1:0] mac_valid;
+  mac_array #(
+    .bw      (bw),
+    .psum_bw (psum_bw),
+    .col     (col),
+    .row     (row)
+  ) mac_array_inst (
+    .clk    (clk),
+    .reset  (reset),
+    .out_s  (psum_array_out),
+    .in_w   (act_wgt_out),         // weights from L0
+    .in_n   (in_n_bus),              //(placeholder)
+    .inst_w ({execute, load}),       // inst_w[1]=execute, [0]=kernel load
+    .valid  (mac_valid)     //connect
+  );
 
-        .out_e(psum_array_out)         // per-column psum
-    );
+wire ofifo_ready;
+wire [col-1:0] wr_fifo;
+wire ofifo_full;
+wire ofifo_valid;
+wire [psum_bw*col-1:0] out_vector;
+assign wr_fifo = mac_valid | {col{ofifo_ready}};
 
-    // ============================================================
-    // 3. SFU (per-column accumulation + ReLU)
-    // ============================================================
-    wire signed [psum_bw-1:0] psum_in [0:col-1];
-    wire signed [psum_bw-1:0] psum_sfu [0:col-1];
-
-    // Flattened final output of SFU → OFIFO
-    wire [psum_bw*col-1:0] psum_sfu_flat;
-
-    genvar i;
-    generate
-        for (i = 0; i < col; i = i + 1) begin : SFU_COL
-
-            assign psum_in[i] = psum_array_out[(i+1)*psum_bw-1 : i*psum_bw];
-
-            // No multi-cycle accumulation → stored_psum = 0
-            sfu #(
-                .bw(bw),
-                .psum_bw(psum_bw)
-            ) SFU_inst (
-                .stored_psum_out(psum_sfu[i]),
-                .psum_ij(psum_in[i][bw-1:0]),
-                .stored_psum({psum_bw{1'b0}}),
-                .Relu_en(1'b0)           // set to 1 to enable ReLU
-            );
-
-            assign psum_sfu_flat[(i+1)*psum_bw-1 : i*psum_bw] = psum_sfu[i];
-        end
-    endgenerate
-
-    // ============================================================
-    // 4. OFIFO (store the psum vectors)
-    // ============================================================
     ofifo #(
         .col(col),
         .bw(psum_bw)
     ) OFIFO_inst (
         .clk(clk),
-        .in(psum_sfu_flat),
+        .in(psum_array_out),
         .out(out_vector),
-        .rd(rd_ofifo),
-        .wr({col{1'b1}}),     // 1 write per cycle → psums ready every cycle
+        .rd(rd_ofifo), //check
+        .wr(wr_fifo),     
         .o_full(ofifo_full),
         .reset(reset),
-        .o_ready(/*unused*/),
+        .o_ready(ofifo_ready), //used
         .o_valid(ofifo_valid)
     );
+
+
+reg psum_valid;
+always @(posedge clk) begin
+    if (reset)
+        rd_ofifo <= 1'b0;
+        psum_valid <= 1'b0;
+    else begin
+        rd_ofifo <= ofifo_valid;   // read whenever data is valid
+        psum_valid <= rd_ofifo;
+    end
+end
+
+always @(posedge clk) begin
+    if (psum_valid)
+        wr_mem <= 1'b1;
+    else
+        wr_mem <= 1'b0;
+end
+
+
+  genvar c;
+  generate
+    for (c = 0; c < col; c = c + 1) begin : GEN_SFU_COL
+      sfu #(
+        .psum_bw(psum_bw),
+        .bw     (bw)
+      ) u_sfu (
+        .clk(clk),
+        .psum_buf(out_vector[(c+1)*psum_bw-1 : c*psum_bw]),
+        .psum_mem(mem_read_psum[(c+1)*psum_bw-1 : c*psum_bw]),
+        .psum_out(sfu_out_flat[(c+1)*psum_bw-1 : c*psum_bw]),
+        .valid(psum_valid)
+      );
+
+    end
+  endgenerate
+
 
 endmodule
