@@ -91,9 +91,10 @@ assign wr_fifo = mac_valid | {col{ofifo_ready}};
 
 reg psum_valid;
 always @(posedge clk) begin
-    if (reset)
+    if (reset)begin
         rd_ofifo <= 1'b0;
         psum_valid <= 1'b0;
+    end
     else begin
         rd_ofifo <= ofifo_valid;   // read whenever data is valid
         psum_valid <= rd_ofifo;

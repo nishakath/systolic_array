@@ -5,7 +5,7 @@ module sfu (clk, psum_buf, psum_mem, valid, psum_out);
 parameter psum_bw = 32;
 parameter bw = 4;
 
-input                       clk,
+input                       clk;
 input signed  [psum_bw-1:0] psum_buf; 
 input signed [psum_bw-1:0] psum_mem;
 input valid;

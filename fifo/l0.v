@@ -20,8 +20,8 @@ module l0 (clk, in, out, rd, wr, o_full, reset, o_ready);
   
   genvar i;
 
-  assign o_ready = ~(||full);
-  assign o_full  = ||full;
+assign o_ready = ~(|full);
+assign o_full  =  |full;
 
 
   for (i=0; i<row ; i=i+1) begin : row_num
@@ -41,38 +41,26 @@ module l0 (clk, in, out, rd, wr, o_full, reset, o_ready);
   reg [3:0] row_cnt;
   integer k;
 
-  always @ (posedge clk) begin
-   if (reset) begin
-      rd_en <= 8'b00000000;
-      row_cnt <= 0;
-   end
-
-   /*
-  // VERSION 1: read all rows at the same time
-  always @ (posedge clk) begin
+  always @(posedge clk) begin
     if (reset) begin
-      rd_en <= {row{1'b0}};
-    end else begin
-      if (rd && ~(|empty)) begin
-        // all FIFOs have data, so read a full vector
-        rd_en <= {row{1'b1}};
-      end else begin
-        rd_en <= {row{1'b0}};
-      end
+        rd_en   <= 8'b00000000;
+        row_cnt <= 0;
     end
-  end
 
-   */
     else if (rd) begin
-        // 1) Expand row_cnt until it reaches the final row
+        // Expand diagonal window
         if (row_cnt < row-1)
             row_cnt <= row_cnt + 1;
 
-        // 2) Enable rows 0 to row_cnt
-        for (i = 0; i < row; i = i + 1)
-            rd_en[i] <= (i <= row_cnt) && !empty[i];
+        // Use a procedural loop variable  
+        for (int k = 0; k < row; k = k + 1) begin
+            rd_en[k] <= (k <= row_cnt) && !empty[k];
+        end
     end
+    
     else begin
         rd_en <= 0;
     end
 end
+
+endmodule
