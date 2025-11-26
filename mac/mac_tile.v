@@ -43,7 +43,7 @@ begin
 	begin
 		inst_q[1] <= inst_w[1];// each cycle forward the execute bit
 		c_q[psum_bw-1:0] <= in_n[psum_bw-1:0]; // psum from previous mac used as c in a*b +c
-		if (inst_w!=2'b00)//no kernel loading and no execute
+		if (inst_w!=2'b00)//no kernel loading and no execute //check
 			a_q<=in_w;
 	 	if ((inst_w[0] == 1'b1) && (load_ready_q == 1'b1))
 		begin
