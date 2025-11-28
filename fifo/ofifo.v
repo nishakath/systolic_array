@@ -38,7 +38,6 @@ module ofifo (clk, in, out, rd, wr, o_full, reset, o_ready, o_valid);
    .reset(reset));
   end
 
-
   always @ (posedge clk) begin
    if (reset) begin
       rd_en <= 0;
@@ -53,9 +52,4 @@ module ofifo (clk, in, out, rd, wr, o_full, reset, o_ready, o_valid);
     end
   end
  
-
-
-
- 
-
 endmodule
