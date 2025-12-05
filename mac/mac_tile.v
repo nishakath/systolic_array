@@ -36,6 +36,9 @@ always@(posedge clk)
 begin
 	if(reset==1'b1)
 	begin
+		a_q <= 0;
+		b_q <= 0;
+		c_q <= 0;
 		inst_q <= 2'b00;
 		load_ready_q <= 1'b1; //weight not loaded yet
 	end

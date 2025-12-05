@@ -17,6 +17,8 @@ always @(posedge clk) begin
     if (valid) begin
         psum_out <= psum_buf + psum_mem;
     end
+    else
+	psum_out <= 0;
 
 end
 

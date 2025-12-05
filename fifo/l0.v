@@ -44,22 +44,30 @@ assign o_full  =  |full;
   always @(posedge clk) begin
     if (reset) begin
         rd_en   <= 8'b00000000;
-        row_cnt <= 0;
     end
-
+//version 2
     else if (rd) begin
         // Expand diagonal window
-        if (row_cnt < row-1)
-            row_cnt <= row_cnt + 1;
+	rd_en[0]<= 1'b1;
+	rd_en[1]<= rd_en[0];
+	rd_en[2]<= rd_en[1];
+	rd_en[3]<= rd_en[2];
+	rd_en[4]<= rd_en[3];
+	rd_en[5]<= rd_en[4];
+	rd_en[6]<= rd_en[5];
+	rd_en[7]<= rd_en[6];
 
-        // Use a procedural loop variable  
-        for (int k = 0; k < row; k = k + 1) begin
-            rd_en[k] <= (k <= row_cnt) && !empty[k];
-        end
     end
     
     else begin
-        rd_en <= 0;
+	rd_en[0]<= 1'b0;
+	rd_en[1]<= rd_en[0];
+	rd_en[2]<= rd_en[1];
+	rd_en[3]<= rd_en[2];
+	rd_en[4]<= rd_en[3];
+	rd_en[5]<= rd_en[4];
+	rd_en[6]<= rd_en[5];
+	rd_en[7]<= rd_en[6];
     end
 end
 

@@ -12,7 +12,7 @@ module corelet #(
 )(
     input                       clk,
     input                       reset,
-    input [5:0]                inst,
+    input [3:0]                inst,
     input [bw*row-1:0]          D_xmem, //goes to L0
     input [psum_bw*col-1:0] mem_read_psum, //input from memory
     output [psum_bw*col-1:0] sfu_out_flat,
@@ -47,6 +47,16 @@ module corelet #(
 
 
 wire [psum_bw*col-1:0] psum_array_out;
+//reg [psum_bw*col-1:0] fifo_in_reg;
+/*
+always @(posedge clk) begin
+    if (reset)
+        fifo_in_reg <= 0;
+    else
+        fifo_in_reg <= psum_array_out; // latch MAC output
+end
+*/
+
 wire [psum_bw*col-1:0] in_n_bus;
 assign in_n_bus = {psum_bw*col{1'b0}};
 
@@ -71,11 +81,11 @@ wire [col-1:0] wr_fifo;
 wire ofifo_full;
 wire ofifo_valid;
 wire [psum_bw*col-1:0] out_vector;
-assign wr_fifo = mac_valid | {col{ofifo_ready}};
+assign wr_fifo = mac_valid & {col{ofifo_ready}};
 
     ofifo #(
         .col(col),
-        .bw(psum_bw)
+        .psum_bw(psum_bw)
     ) OFIFO_inst (
         .clk(clk),
         .in(psum_array_out),
@@ -94,10 +104,12 @@ always @(posedge clk) begin
     if (reset)begin
         rd_ofifo <= 1'b0;
         psum_valid <= 1'b0;
+
     end
     else begin
         rd_ofifo <= ofifo_valid;   // read whenever data is valid
         psum_valid <= rd_ofifo;
+
     end
 end
 

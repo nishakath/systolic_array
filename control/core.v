@@ -2,25 +2,20 @@ module core #(
     parameter bw        = 4,    // weight bitwidth
     parameter psum_bw   = 32,   // psum bitwidth
     parameter row       = 8,    // number of MAC rows
-    parameter col       = 8     // number of MAC cols
+    parameter col       = 8,     // number of MAC cols
+    parameter len_nij   = 16
 )
 (
     input                      clk,
     input                      reset,
-    input [7:0]                inst, //inst[6] is final read from mem
-    //rchip is inst[7]
+    input [6:0]                inst, //inst[4] is final read from mem
+    //rchip is inst[5]
 
 
     input  wen_act_wgt,
     input  cen_act_wgt,
     input  [31:0] din_act_wgt,
     input  [10:0] addr_act_wgt,
-
-    input  wen_out,
-    input  cen_out,
-    input  [31:0] din_out,
-    input  [10:0] out_addr,
-
     output [psum_bw*col-1:0] final_psum_vector
 
 );
@@ -32,28 +27,6 @@ wire [psum_bw*col-1:0] psum_to_sfu;
 
 reg [psum_bw*col-1:0] psum_to_sfu_q;   // already used but not declared?
 
-
-
-// mem1
-wire [31:0] psum_stored_mem1_1;
-wire [31:0] psum_stored_mem1_2;
-wire [31:0] psum_stored_mem1_3;
-wire [31:0] psum_stored_mem1_4;
-wire [31:0] psum_stored_mem1_5;
-wire [31:0] psum_stored_mem1_6;
-wire [31:0] psum_stored_mem1_7;
-wire [31:0] psum_stored_mem1_8;
-
-// mem2
-wire [31:0] psum_stored_mem2_1;
-wire [31:0] psum_stored_mem2_2;
-wire [31:0] psum_stored_mem2_3;
-wire [31:0] psum_stored_mem2_4;
-wire [31:0] psum_stored_mem2_5;
-wire [31:0] psum_stored_mem2_6;
-wire [31:0] psum_stored_mem2_7;
-wire [31:0] psum_stored_mem2_8;
-
 sram_32b #(.num(2000)) sram_acts_wgts (
     .CLK(clk),
     .WEN(wen_act_wgt),
@@ -64,66 +37,86 @@ sram_32b #(.num(2000)) sram_acts_wgts (
   );
 
 // control for psum memories
-reg        cen_out_mem1, cen_out_mem2;
-reg        wen_out_mem1, wen_out_mem2;
+// changed here
+reg      cen_out_mem1, cen_out_mem2;
+reg     wen_out_mem1, wen_out_mem2;
 reg [10:0] out_addr_mem1, out_addr_mem2;
 // SFU outputs from corelet
 wire [psum_bw*col-1:0] sfu_out_flat;
 
-sram_32b #(.num(1024)) sram_psum_oc1_mem1 (.CLK(clk), .D(sfu_out_flat[31:0]), .Q(psum_stored_mem1_1), .CEN(cen_out_mem1), .WEN(wen_out_mem1), .A(out_addr_mem1));
-sram_32b #(.num(1024)) sram_psum_oc2_mem1 (.CLK(clk), .D(sfu_out_flat[63:32]), .Q(psum_stored_mem1_2), .CEN(cen_out_mem1), .WEN(wen_out_mem1), .A(out_addr_mem1));
-sram_32b #(.num(1024)) sram_psum_oc3_mem1 (.CLK(clk), .D(sfu_out_flat[95:64]), .Q(psum_stored_mem1_3), .CEN(cen_out_mem1), .WEN(wen_out_mem1), .A(out_addr_mem1));
-sram_32b #(.num(1024)) sram_psum_oc4_mem1 (.CLK(clk), .D(sfu_out_flat[127:96]), .Q(psum_stored_mem1_4), .CEN(cen_out_mem1), .WEN(wen_out_mem1), .A(out_addr_mem1));
-sram_32b #(.num(1024)) sram_psum_oc5_mem1 (.CLK(clk), .D(sfu_out_flat[159:128]), .Q(psum_stored_mem1_5), .CEN(cen_out_mem1), .WEN(wen_out_mem1), .A(out_addr_mem1));
-sram_32b #(.num(1024)) sram_psum_oc6_mem1 (.CLK(clk), .D(sfu_out_flat[191:160]), .Q(psum_stored_mem1_6), .CEN(cen_out_mem1), .WEN(wen_out_mem1), .A(out_addr_mem1));
-sram_32b #(.num(1024)) sram_psum_oc7_mem1 (.CLK(clk), .D(sfu_out_flat[223:192]), .Q(psum_stored_mem1_7), .CEN(cen_out_mem1), .WEN(wen_out_mem1), .A(out_addr_mem1));
-sram_32b #(.num(1024)) sram_psum_oc8_mem1 (.CLK(clk), .D(sfu_out_flat[255:224]), .Q(psum_stored_mem1_8), .CEN(cen_out_mem1), .WEN(wen_out_mem1), .A(out_addr_mem1));
+// =======================================================
+//  Generate 8 psum SRAMs for MEM1 and MEM2
+//  Each stores 32 bits from sfu_out_flat
+// =======================================================
 
-sram_32b #(.num(1024)) sram_psum_oc1_mem2 (.CLK(clk), .D(sfu_out_flat[31:0]), .Q(psum_stored_mem2_1), .CEN(cen_out_mem2), .WEN(wen_out_mem2), .A(out_addr_mem2));
-sram_32b #(.num(1024)) sram_psum_oc2_mem2 (.CLK(clk), .D(sfu_out_flat[63:32]), .Q(psum_stored_mem2_2), .CEN(cen_out_mem2), .WEN(wen_out_mem2), .A(out_addr_mem2));
-sram_32b #(.num(1024)) sram_psum_oc3_mem2 (.CLK(clk), .D(sfu_out_flat[95:64]), .Q(psum_stored_mem2_3), .CEN(cen_out_mem2), .WEN(wen_out_mem2), .A(out_addr_mem2));
-sram_32b #(.num(1024)) sram_psum_oc4_mem2 (.CLK(clk), .D(sfu_out_flat[127:96]), .Q(psum_stored_mem2_4), .CEN(cen_out_mem2), .WEN(wen_out_mem2), .A(out_addr_mem2));
-sram_32b #(.num(1024)) sram_psum_oc5_mem2 (.CLK(clk), .D(sfu_out_flat[159:128]), .Q(psum_stored_mem2_5), .CEN(cen_out_mem2), .WEN(wen_out_mem2), .A(out_addr_mem2));
-sram_32b #(.num(1024)) sram_psum_oc6_mem2 (.CLK(clk), .D(sfu_out_flat[191:160]), .Q(psum_stored_mem2_6), .CEN(cen_out_mem2), .WEN(wen_out_mem2), .A(out_addr_mem2));
-sram_32b #(.num(1024)) sram_psum_oc7_mem2 (.CLK(clk), .D(sfu_out_flat[223:192]), .Q(psum_stored_mem2_7), .CEN(cen_out_mem2), .WEN(wen_out_mem2), .A(out_addr_mem2));
-sram_32b #(.num(1024)) sram_psum_oc8_mem2 (.CLK(clk), .D(sfu_out_flat[255:224]), .Q(psum_stored_mem2_8), .CEN(cen_out_mem2), .WEN(wen_out_mem2), .A(out_addr_mem2));
+genvar oc;
+generate
+    for (oc = 0; oc < 8; oc = oc + 1) begin : gen_psum_srams
+
+        // -------------------------------
+        // MEM1 SRAMs (rchip = 1 output bank)
+        // -------------------------------
+        sram_32b #(.num(32)) sram_psum_mem1 (
+            .CLK(clk),
+            .D( sfu_out_flat[(32*oc + 31) : (32*oc)] ),
+            .Q( psum_stored_mem1[oc] ),     // <-- use an array for cleaner code
+            .CEN( cen_out_mem1 ),
+            .WEN( wen_out_mem1 ),
+            .A( out_addr_mem1 )
+        );
+
+        // -------------------------------
+        // MEM2 SRAMs (rchip = 0 output bank)
+        // -------------------------------
+        sram_32b #(.num(32)) sram_psum_mem2 (
+            .CLK(clk),
+            .D( sfu_out_flat[(32*oc + 31) : (32*oc)] ),
+            .Q( psum_stored_mem2[oc] ),     // <-- use an array for cleaner code
+            .CEN( cen_out_mem2 ),
+            .WEN( wen_out_mem2 ),
+            .A( out_addr_mem2 )
+        );
+
+    end
+endgenerate
 
 // Concatenate read psums from each chip
-wire [psum_bw*col-1:0] psum_to_sfu_mem1;
-wire [psum_bw*col-1:0] psum_to_sfu_mem2;
+wire [31:0] psum_stored_mem1 [0:7];
+wire [31:0] psum_stored_mem2 [0:7];
+
 
 assign psum_to_sfu_mem1 = {
-    psum_stored_mem1_8,
-    psum_stored_mem1_7,
-    psum_stored_mem1_6,
-    psum_stored_mem1_5,
-    psum_stored_mem1_4,
-    psum_stored_mem1_3,
-    psum_stored_mem1_2,
-    psum_stored_mem1_1
+    psum_stored_mem1[7],
+    psum_stored_mem1[6],
+    psum_stored_mem1[5],
+    psum_stored_mem1[4],
+    psum_stored_mem1[3],
+    psum_stored_mem1[2],
+    psum_stored_mem1[1],
+    psum_stored_mem1[0]
 };
 
 assign psum_to_sfu_mem2 = {
-    psum_stored_mem2_8,
-    psum_stored_mem2_7,
-    psum_stored_mem2_6,
-    psum_stored_mem2_5,
-    psum_stored_mem2_4,
-    psum_stored_mem2_3,
-    psum_stored_mem2_2,
-    psum_stored_mem2_1
+    psum_stored_mem2[7],
+    psum_stored_mem2[6],
+    psum_stored_mem2[5],
+    psum_stored_mem2[4],
+    psum_stored_mem2[3],
+    psum_stored_mem2[2],
+    psum_stored_mem2[1],
+    psum_stored_mem2[0]
 };
 
 // mem select
 wire  rchip;  // 0 -> read mem1 / write mem2, 1 -> read mem2 / write mem1
-assign rchip = inst[7];
+assign rchip = inst[5];
 
-wire [psum_bw*col-1:0] psum_to_sfu;
 assign psum_to_sfu = rchip ? psum_to_sfu_mem2 : psum_to_sfu_mem1;
 
 wire o_ready_l0;
 wire wr_mem;       // from corelet: write-enable for psum SRAM phase
 wire rd_ofifo;     // from corelet: OFIFO read → psum read phase
+wire wr_ofifo;
 
 
 corelet #(
@@ -134,12 +127,12 @@ corelet #(
 ) CORELET_inst (
     .clk           (clk),
     .reset         (reset),
-    .inst          (inst[5:0]),
+    .inst          (inst[3:0]),
     .D_xmem        (qread_act),
     .mem_read_psum (psum_to_sfu_q),
     .sfu_out_flat  (sfu_out_flat),
     .o_ready_l0    (o_ready_l0),
-    .wr_mem        (wr_mem),
+    .wr_mem        (wr_ofifo),
     .rd_ofifo      (rd_ofifo)
 );
 
@@ -150,7 +143,11 @@ wire [10:0] max_rptr;
 wire [10:0] max_wptr;
 wire rd_mem;
 
-assign rd_mem = (inst[6] == 1'b1) ? (rd_ptr < max_rptr) : rd_ofifo;
+assign max_rptr = len_nij - 1;
+assign max_wptr = len_nij - 1;
+
+assign rd_mem = (inst[4] == 1'b1) ? (rd_ptr < max_rptr) : rd_ofifo;
+assign wr_mem = (inst[6] == 1'b1) ? (wr_ptr < max_wptr) : wr_ofifo;
 
 
 
@@ -197,9 +194,6 @@ always @* begin
         end
 end
 
-assign max_rptr = 1023;
-assign max_wptr = 1023;
-
 
 always @(posedge clk) begin
     if (reset) begin
@@ -211,9 +205,9 @@ always @(posedge clk) begin
     else begin
 
         // ---------------------------
-        // NORMAL ACCUMULATION MODE inst[6] = 0
+        // NORMAL ACCUMULATION MODE inst[4] = 0
         // ---------------------------
-        if (!inst[6]) begin      
+        if (!inst[4]) begin      
             if (rd_mem && (rd_ptr < max_rptr)) begin
                 psum_to_sfu_q <= psum_to_sfu;
                 rd_ptr <= rd_ptr + 1;
