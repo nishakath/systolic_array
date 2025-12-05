@@ -1,2 +1,1 @@
-# systolic_array
-ece284
+# systolic_array for CNN
